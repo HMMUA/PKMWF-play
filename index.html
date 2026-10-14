@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#091b26">
+  <title>宝可梦 · 对战试验场</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #091b26; }
+    body { color: #edf5f5; font-family: system-ui, sans-serif; touch-action: none; overscroll-behavior: none; }
+    #canvas { display: block; width: 100%; height: 100%; outline: none; }
+    #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 30px; background: #091b26; text-align: center; }
+    h1 { margin: 0; font-size: 24px; }
+    p { margin: 0; color: #a6b9c7; font-size: 14px; line-height: 1.6; }
+    #download { width: min(320px, 100%); }
+    #download-label { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #c2d7df; }
+    #percent { color: #8ef0d8; font-variant-numeric: tabular-nums; font-weight: 700; }
+    progress { display: block; width: 100%; height: 14px; border: 1px solid #3b5a66; border-radius: 20px; overflow: hidden; background: #17333d; accent-color: #70d6c8; }
+    progress::-webkit-progress-bar { background: #17333d; border-radius: 20px; }
+    progress::-webkit-progress-value { background: linear-gradient(90deg, #38a99e, #8ef0d8); border-radius: 20px; transition: width 150ms linear; }
+    progress::-moz-progress-bar { background: linear-gradient(90deg, #38a99e, #8ef0d8); border-radius: 20px; }
+    #download-detail { margin-top: 10px; min-height: 22px; font-size: 12px; color: #91a5b5; }
+    #error { color: #ffb6aa; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #retry { padding: 12px 28px; border: 1px solid #70d6c8; border-radius: 8px; color: #edf5f5; background: #193b43; font: inherit; cursor: pointer; }
+    [hidden] { display: none !important; }
+  </style>
+  
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" aria-label="宝可梦对战游戏">浏览器不支持画布，请使用新版 Chrome、Edge 或 Safari。</canvas>
+  <section id="loading" aria-live="polite">
+    <h1>宝可梦 · 对战试验场</h1>
+    <p id="message">正在加载游戏，首次打开请稍候…<br>手机竖屏游玩，拖动宝可梦即可上场。</p>
+    <div id="download">
+      <div id="download-label"><span id="phase">正在连接…</span><span id="percent">0%</span></div>
+      <progress id="progress" aria-label="游戏资源下载进度" max="100" value="0"></progress>
+      <p id="download-detail">首次加载较慢，之后浏览器会缓存资源。</p>
+    </div>
+    <p id="error" hidden></p>
+    <button id="retry" hidden>重新加载</button>
+  </section>
+  <noscript>请开启 JavaScript 后刷新页面。</noscript>
+  <script src="index.js"></script>
+  <script>
+    const config = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":20444608,"index.wasm":37695054},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+    const engine = new Engine(config);
+    const progress = document.getElementById('progress');
+    const phase = document.getElementById('phase');
+    const percent = document.getElementById('percent');
+    const detail = document.getElementById('download-detail');
+    const retry = document.getElementById('retry');
+    retry.addEventListener('click', () => location.reload());
+    function fail(error) {
+      console.error(error);
+      document.getElementById('message').textContent = '游戏未能启动，请尝试刷新，或用系统浏览器打开。';
+      const notice = document.getElementById('error');
+      notice.textContent = error instanceof Error ? error.message : String(error);
+      notice.hidden = false;
+      document.getElementById('download').hidden = true;
+      retry.hidden = false;
+    }
+    const missing = Engine.getMissingFeatures({ threads: false });
+    if (missing.length) {
+      fail('浏览器缺少运行支持：' + missing.join('、'));
+    } else {
+      engine.startGame({
+        onProgress(current, total) {
+          if (total > 0) {
+            const value = Math.min(100, Math.floor(current / total * 100));
+            progress.max = total;
+            progress.value = current;
+            percent.textContent = value + '%';
+            phase.textContent = current >= total ? '正在启动游戏…' : '正在下载游戏';
+            detail.textContent = current >= total
+              ? '资源已就绪，正在准备场景，请稍候…'
+              : (current / 1048576).toFixed(1) + ' / ' + (total / 1048576).toFixed(1) + ' MB';
+          } else {
+            progress.removeAttribute('value');
+            percent.textContent = '加载中';
+            phase.textContent = '正在下载游戏';
+            detail.textContent = current > 0 ? '已下载 ' + (current / 1048576).toFixed(1) + ' MB' : '正在连接资源…';
+          }
+        },
+        onExit(code) { if (code) fail('游戏退出，错误码：' + code); }
+      }).then(() => {
+        document.getElementById('loading').hidden = true;
+        document.getElementById('canvas').focus();
+      }, fail);
+    }
+  </script>
+</body>
+</html>
+
